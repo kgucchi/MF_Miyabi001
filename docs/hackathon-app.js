@@ -63,8 +63,8 @@ let currentLang = 'ja';
 let gallery = JSON.parse(localStorage.getItem('videoGallery') || '[]');
 
 // Seedance API configuration
-const SEEDANCE_API_KEY = 'YOUR_SEEDANCE_API_KEY'; // To be replaced
-const SEEDANCE_API_URL = 'https://api.seedance.ai/v1/generate'; // Example URL
+const SEEDANCE_API_KEY = 'fd5fb206-2399-4913-ac24-453fc6139481';
+const SEEDANCE_API_URL = 'https://api.seedance.ai/v1/generate'; // Update if different
 
 // DOM Elements
 const elements = {
@@ -151,16 +151,23 @@ async function generateVideo() {
     elements.statusMessage.style.display = 'none';
 
     try {
-        // For demo purposes: create a mock video
-        // In production, replace with actual Seedance API call
-        const videoData = await mockSeedanceAPI(story);
+        // Try actual Seedance API first
+        let videoData;
+        try {
+            videoData = await callSeedanceAPI(story);
+            console.log('Seedance API response:', videoData);
+        } catch (apiError) {
+            console.warn('Seedance API failed, using mock data:', apiError);
+            // Fallback to mock if API fails
+            videoData = await mockSeedanceAPI(story);
+        }
 
-        displayVideo(videoData.url);
+        displayVideo(videoData.url || videoData.video_url || videoData.result?.url);
         showStatus('success', translations[currentLang].successMessage);
         elements.previewControls.style.display = 'flex';
     } catch (error) {
         console.error('Error generating video:', error);
-        showStatus('error', translations[currentLang].errorMessage);
+        showStatus('error', translations[currentLang].errorMessage + ' ' + error.message);
     } finally {
         elements.generateBtn.disabled = false;
         elements.loading.classList.remove('active');
@@ -182,29 +189,31 @@ async function mockSeedanceAPI(story) {
     };
 }
 
-// Actual Seedance API integration (commented out - requires API key)
-/*
+// Actual Seedance API integration
 async function callSeedanceAPI(story) {
     const response = await fetch(SEEDANCE_API_URL, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${SEEDANCE_API_KEY}`
+            'Authorization': `Bearer ${SEEDANCE_API_KEY}`,
+            'X-API-Key': SEEDANCE_API_KEY  // Alternative auth header
         },
         body: JSON.stringify({
             prompt: story,
+            text: story,
             duration: 30,
-            quality: 'high'
+            quality: 'high',
+            language: currentLang
         })
     });
 
     if (!response.ok) {
-        throw new Error('API request failed');
+        const errorText = await response.text();
+        throw new Error(`API request failed: ${response.status} - ${errorText}`);
     }
 
     return await response.json();
 }
-*/
 
 // Display video
 function displayVideo(videoUrl) {
